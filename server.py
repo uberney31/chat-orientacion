@@ -39,7 +39,6 @@ app.add_middleware(
 # Import ADK components
 from orientational_agent.agent import root_agent
 from google.adk.sessions import Session
-from google.genai import types
 
 # Simple in-memory session storage
 sessions_store = {}
@@ -139,35 +138,41 @@ async def run_agent_streaming(request: Request):
         async def event_generator():
             """Generate SSE events"""
             try:
-                # Add user message to session
-                user_content = types.Content(
-                    parts=[types.Part(text=new_message["parts"][0]["text"])],
-                    role="user"
+                import litellm
+                
+                # Get the user message text
+                user_text = new_message["parts"][0]["text"]
+                
+                # Create messages array with system and user message
+                messages = [
+                    {"role": "system", "content": root_agent.description},
+                    {"role": "user", "content": user_text}
+                ]
+                
+                # Use litellm.acompletion for async generation
+                response = await litellm.acompletion(
+                    model="gpt-4o",
+                    messages=messages,
+                    temperature=0.7,
+                    stream=False
                 )
                 
-                # Generate response using the agent's model directly
-                response = await root_agent.model.generate_content_async(
-                    [user_content],
-                    config=types.GenerateContentConfig(
-                        system_instruction=root_agent.description,
-                        temperature=0.7
-                    )
-                )
+                # Extract response text
+                assistant_message = response.choices[0].message.content
                 
                 # Send response as event
-                if response.text:
-                    event_data = {
-                        "type": "message",
-                        "content": {
-                            "parts": [{"text": response.text}],
-                            "role": "model"
-                        }
+                event_data = {
+                    "type": "message",
+                    "content": {
+                        "parts": [{"text": assistant_message}],
+                        "role": "model"
                     }
-                    yield f"data: {json.dumps(event_data)}\n\n"
+                }
+                yield f"data: {json.dumps(event_data)}\n\n"
                 
                 # Update session
                 sessions_store[session_key] = session
-                print(f"✅ Message processed for session {session_id}")
+                print(f"✅ Message processed: {assistant_message[:50]}...")
                 
             except Exception as e:
                 print(f"❌ Error in streaming: {e}")
