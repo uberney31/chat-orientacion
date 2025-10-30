@@ -1,1 +1,1 @@
-web: echo "Frontend URL: $FRONTEND_URL" && adk web --port $PORT --allow_origins=$FRONTEND_URL .
+web: bash start.sh
