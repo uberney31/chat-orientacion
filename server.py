@@ -61,13 +61,31 @@ async def health_check():
 async def create_session(app_name: str, user_id: str):
     """Create a new chat session"""
     try:
-        session = await session_service.create(
+        from google.adk.sessions import Session
+        from datetime import datetime
+        import uuid
+        
+        # Create a new session manually
+        session_id = str(uuid.uuid4())
+        session = Session(
+            id=session_id,
             app_name=app_name,
-            user_id=user_id
+            user_id=user_id,
+            state={},
+            events=[],
+            created_at=datetime.utcnow().isoformat(),
+            updated_at=datetime.utcnow().isoformat()
         )
+        
+        # Store session
+        await session_service.save(app_name, user_id, session)
+        
+        print(f"✅ Session created: {session_id}")
         return session.model_dump()
     except Exception as e:
         print(f"❌ Error creating session: {e}")
+        import traceback
+        traceback.print_exc()
         return Response(
             content=json.dumps({"error": str(e)}),
             status_code=500,
@@ -78,11 +96,7 @@ async def create_session(app_name: str, user_id: str):
 async def get_session(app_name: str, user_id: str, session_id: str):
     """Get an existing session"""
     try:
-        session = await session_service.get(
-            app_name=app_name,
-            user_id=user_id,
-            session_id=session_id
-        )
+        session = await session_service.get(app_name, user_id, session_id)
         return session.model_dump()
     except Exception as e:
         print(f"❌ Error getting session: {e}")
