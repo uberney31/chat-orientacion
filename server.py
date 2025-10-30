@@ -22,7 +22,7 @@ print("=" * 80)
 # Create FastAPI app
 app = FastAPI(title="Orientational Agent API")
 
-# Configure CORS middleware FIRST (before routes)
+# Configure CORS middleware FIRST
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -36,9 +36,10 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
-# Import ADK agent after app creation
+# Import ADK components
 from orientational_agent.agent import root_agent
 from google.adk.sessions import Session
+from google.genai import types
 
 # Simple in-memory session storage
 sessions_store = {}
@@ -63,7 +64,7 @@ async def create_session(app_name: str, user_id: str):
     try:
         import uuid
         
-        # Create a new session with only allowed fields
+        # Create a new session
         session_id = str(uuid.uuid4())
         session = Session(
             id=session_id,
@@ -73,7 +74,7 @@ async def create_session(app_name: str, user_id: str):
             events=[]
         )
         
-        # Store session in memory
+        # Store session
         session_key = f"{app_name}:{user_id}:{session_id}"
         sessions_store[session_key] = session
         
@@ -112,42 +113,6 @@ async def get_session(app_name: str, user_id: str, session_id: str):
             media_type="application/json"
         )
 
-@app.post("/run")
-async def run_agent(request: Request):
-    """Run the agent (non-streaming)"""
-    try:
-        body = await request.json()
-        app_name = body.get("app_name")
-        user_id = body.get("user_id")
-        session_id = body.get("session_id")
-        new_message = body.get("new_message")
-        
-        # Get session
-        session_key = f"{app_name}:{user_id}:{session_id}"
-        session = sessions_store.get(session_key)
-        
-        if not session:
-            return Response(
-                content=json.dumps({"error": "Session not found"}),
-                status_code=404,
-                media_type="application/json"
-            )
-        
-        # Run agent
-        response = await root_agent.run(new_message, session=session)
-        
-        # Update session in store
-        sessions_store[session_key] = session
-        
-        return response.model_dump()
-    except Exception as e:
-        print(f"❌ Error running agent: {e}")
-        return Response(
-            content=json.dumps({"error": str(e)}),
-            status_code=500,
-            media_type="application/json"
-        )
-
 @app.post("/run_sse")
 async def run_agent_streaming(request: Request):
     """Run the agent with Server-Sent Events streaming"""
@@ -174,13 +139,33 @@ async def run_agent_streaming(request: Request):
         async def event_generator():
             """Generate SSE events"""
             try:
-                # Run agent (Google ADK agents don't have run_stream, use run instead)
-                async for event in root_agent.run(new_message, session=session):
-                    # Send event as SSE
-                    event_data = event.model_dump() if hasattr(event, 'model_dump') else {"content": str(event)}
+                # Add user message to session
+                user_content = types.Content(
+                    parts=[types.Part(text=new_message["parts"][0]["text"])],
+                    role="user"
+                )
+                
+                # Generate response using the agent's model directly
+                response = await root_agent.model.generate_content_async(
+                    [user_content],
+                    config=types.GenerateContentConfig(
+                        system_instruction=root_agent.description,
+                        temperature=0.7
+                    )
+                )
+                
+                # Send response as event
+                if response.text:
+                    event_data = {
+                        "type": "message",
+                        "content": {
+                            "parts": [{"text": response.text}],
+                            "role": "model"
+                        }
+                    }
                     yield f"data: {json.dumps(event_data)}\n\n"
                 
-                # Update session in store after stream completes
+                # Update session
                 sessions_store[session_key] = session
                 print(f"✅ Message processed for session {session_id}")
                 
