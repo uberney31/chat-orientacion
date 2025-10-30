@@ -174,13 +174,15 @@ async def run_agent_streaming(request: Request):
         async def event_generator():
             """Generate SSE events"""
             try:
-                async for event in root_agent.run_stream(new_message, session=session):
+                # Run agent (Google ADK agents don't have run_stream, use run instead)
+                async for event in root_agent.run(new_message, session=session):
                     # Send event as SSE
-                    event_data = event.model_dump()
+                    event_data = event.model_dump() if hasattr(event, 'model_dump') else {"content": str(event)}
                     yield f"data: {json.dumps(event_data)}\n\n"
                 
                 # Update session in store after stream completes
                 sessions_store[session_key] = session
+                print(f"✅ Message processed for session {session_id}")
                 
             except Exception as e:
                 print(f"❌ Error in streaming: {e}")
