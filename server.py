@@ -38,10 +38,10 @@ app.add_middleware(
 
 # Import ADK agent after app creation
 from orientational_agent.agent import root_agent
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import Session
 
-# Create session service
-session_service = InMemorySessionService()
+# Simple in-memory session storage
+sessions_store = {}
 
 @app.get("/")
 async def root():
@@ -61,7 +61,6 @@ async def health_check():
 async def create_session(app_name: str, user_id: str):
     """Create a new chat session"""
     try:
-        from google.adk.sessions import Session
         import uuid
         
         # Create a new session with only allowed fields
@@ -74,8 +73,9 @@ async def create_session(app_name: str, user_id: str):
             events=[]
         )
         
-        # Store session
-        await session_service.save(app_name, user_id, session)
+        # Store session in memory
+        session_key = f"{app_name}:{user_id}:{session_id}"
+        sessions_store[session_key] = session
         
         print(f"✅ Session created: {session_id} for user {user_id}")
         return session.model_dump()
@@ -93,7 +93,16 @@ async def create_session(app_name: str, user_id: str):
 async def get_session(app_name: str, user_id: str, session_id: str):
     """Get an existing session"""
     try:
-        session = await session_service.get(app_name, user_id, session_id)
+        session_key = f"{app_name}:{user_id}:{session_id}"
+        session = sessions_store.get(session_key)
+        
+        if not session:
+            return Response(
+                content=json.dumps({"error": "Session not found"}),
+                status_code=404,
+                media_type="application/json"
+            )
+        
         return session.model_dump()
     except Exception as e:
         print(f"❌ Error getting session: {e}")
@@ -114,13 +123,21 @@ async def run_agent(request: Request):
         new_message = body.get("new_message")
         
         # Get session
-        session = await session_service.get(app_name, user_id, session_id)
+        session_key = f"{app_name}:{user_id}:{session_id}"
+        session = sessions_store.get(session_key)
+        
+        if not session:
+            return Response(
+                content=json.dumps({"error": "Session not found"}),
+                status_code=404,
+                media_type="application/json"
+            )
         
         # Run agent
         response = await root_agent.run(new_message, session=session)
         
-        # Save session
-        await session_service.save(session)
+        # Update session in store
+        sessions_store[session_key] = session
         
         return response.model_dump()
     except Exception as e:
@@ -144,7 +161,15 @@ async def run_agent_streaming(request: Request):
         print(f"📨 Received message for session {session_id}")
         
         # Get session
-        session = await session_service.get(app_name, user_id, session_id)
+        session_key = f"{app_name}:{user_id}:{session_id}"
+        session = sessions_store.get(session_key)
+        
+        if not session:
+            return Response(
+                content=json.dumps({"error": "Session not found"}),
+                status_code=404,
+                media_type="application/json"
+            )
         
         async def event_generator():
             """Generate SSE events"""
@@ -154,11 +179,13 @@ async def run_agent_streaming(request: Request):
                     event_data = event.model_dump()
                     yield f"data: {json.dumps(event_data)}\n\n"
                 
-                # Save session after stream completes
-                await session_service.save(session)
+                # Update session in store after stream completes
+                sessions_store[session_key] = session
                 
             except Exception as e:
                 print(f"❌ Error in streaming: {e}")
+                import traceback
+                traceback.print_exc()
                 error_event = {"error": str(e)}
                 yield f"data: {json.dumps(error_event)}\n\n"
         
@@ -173,6 +200,8 @@ async def run_agent_streaming(request: Request):
         
     except Exception as e:
         print(f"❌ Error in run_sse: {e}")
+        import traceback
+        traceback.print_exc()
         return Response(
             content=json.dumps({"error": str(e)}),
             status_code=500,
