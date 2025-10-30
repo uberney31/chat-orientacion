@@ -1,1 +1,1 @@
-web: adk web --port ${PORT:-8000} --allow_origins="${FRONTEND_URL}" .
+web: echo "Frontend URL: $FRONTEND_URL" && adk web --port $PORT --allow_origins=$FRONTEND_URL .
