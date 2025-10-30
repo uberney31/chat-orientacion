@@ -1,6 +1,15 @@
 [build]
 builder = "nixpacks"
 
+[build.nixpacksPlan]
+providers = ["python"]
+
+[[build.nixpacksPlan.phases.setup]]
+nixPkgs = ["python312", "gcc"]
+
+[[build.nixpacksPlan.phases.install]]
+cmds = ["pip install -r requirements.production.txt"]
+
 [deploy]
 startCommand = "adk web --port $PORT --allow_origins=${FRONTEND_URL} ."
 
