@@ -62,25 +62,22 @@ async def create_session(app_name: str, user_id: str):
     """Create a new chat session"""
     try:
         from google.adk.sessions import Session
-        from datetime import datetime
         import uuid
         
-        # Create a new session manually
+        # Create a new session with only allowed fields
         session_id = str(uuid.uuid4())
         session = Session(
             id=session_id,
             app_name=app_name,
             user_id=user_id,
             state={},
-            events=[],
-            created_at=datetime.utcnow().isoformat(),
-            updated_at=datetime.utcnow().isoformat()
+            events=[]
         )
         
         # Store session
         await session_service.save(app_name, user_id, session)
         
-        print(f"✅ Session created: {session_id}")
+        print(f"✅ Session created: {session_id} for user {user_id}")
         return session.model_dump()
     except Exception as e:
         print(f"❌ Error creating session: {e}")
