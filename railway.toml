@@ -1,5 +1,0 @@
-[build]
-builder = "nixpacks"
-
-[deploy]
-startCommand = "pip install -r requirements.production.txt && adk web --port $PORT --allow_origins=${FRONTEND_URL} ."

@@ -1,9 +1,0 @@
-[phases.setup]
-nixPkgs = ['python312', 'gcc']
-
-[phases.install]
-cmds = ['pip install -r requirements.production.txt']
-
-[start]
-cmd = 'adk web --port $PORT --allow_origins=${FRONTEND_URL} .'
-
