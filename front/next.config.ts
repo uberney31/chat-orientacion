@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_API_URL: 'https://web-production-b9f06.up.railway.app',
     NEXT_PUBLIC_APP_NAME: 'orientational_agent',
   },
+  // Force rebuild
+  generateBuildId: async () => {
+    return 'build-' + Date.now()
+  },
 };
 
 export default nextConfig;
