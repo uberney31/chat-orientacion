@@ -4,13 +4,13 @@ import { getFirestore } from 'firebase/firestore';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAgVnCdzYWZPxDcLHGpHGFhdq-JvVJMkrU",
-  authDomain: "chat-orientacion.firebaseapp.com",
-  projectId: "chat-orientacion",
-  storageBucket: "chat-orientacion.firebasestorage.app",
-  messagingSenderId: "386087691549",
-  appId: "1:386087691549:web:fcf860e58b4cbd1d00adf4",
-  measurementId: "G-QJXT45F02M"
+  apiKey: "AIzaSyDuYHbuZN63_VYJeyRI-oA43pBIxq5Dm7c",
+  authDomain: "chat-orientacion-vocacional.firebaseapp.com",
+  projectId: "chat-orientacion-vocacional",
+  storageBucket: "chat-orientacion-vocacional.firebasestorage.app",
+  messagingSenderId: "293396638275",
+  appId: "1:293396638275:web:f6a5e105b7fcc96e3342f6",
+  measurementId: "G-1NE7P9MPDT"
 };
 
 // Inicializar Firebase solo si no está inicializado
